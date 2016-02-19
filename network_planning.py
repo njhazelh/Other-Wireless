@@ -63,6 +63,10 @@ def generate_data(width, height, ap_range):
     end = time.time()
     print("Generated Data:", end - start)
 
+    cover_len = len(soln)
+    while len(soln) < cover_len * 2:
+        soln.add((random.randint(0, width), random.randint(0, height)))
+
     return soln
 
 def heuristic_zero(width, height, ap_range, points):
@@ -142,14 +146,14 @@ class Test(object):
         self.num_extra = num_extra
         self.index = index
 
-    def __call__(self, data, width, height, ap_range):
-        print("m = %2d: %d" % (self.num_extra, self.index))
-        test_data = data.union(random_points(width, height, self.num_extra))
+    def __call__(self, width, height, ap_range):
+        print("m=%d: %d" % (self.num_extra, self.index))
 
         start = time.time()
-        h0_soln = heuristic_zero(width, height, ap_range, test_data)
-        h1_soln = heuristic_one(width, height, ap_range, test_data)
-        h2_soln = heuristic_two(width, height, ap_range, test_data)
+        data = generate_data(width, height, ap_range)
+        h0_soln = heuristic_zero(width, height, ap_range, data)
+        h1_soln = heuristic_one(width, height, ap_range, data)
+        h2_soln = heuristic_two(width, height, ap_range, data)
         end = time.time()
         print("test complete: ", end - start)
 
@@ -159,13 +163,13 @@ class Test(object):
             "h2": len(h2_soln),
         }, self.num_extra
 
-def test_worker(data, width, height, ap_range, test_queue, result_queue):
+def test_worker(width, height, ap_range, test_queue, result_queue):
     while True:
         next_test = test_queue.get()
         if next_test is None:
             test_queue.task_done()
             break
-        lengths, num_extra = next_test(data, width, height, ap_range)
+        lengths, num_extra = next_test(width, height, ap_range)
         lengths["best"] = lengths[min(lengths, key=lengths.get)]
         result_queue.put((lengths, num_extra))
         test_queue.task_done()
@@ -174,11 +178,9 @@ def main():
     width = 2000
     height = 2000
     ap_range = 200
-    simulations = 1000
+    simulations = 100
     max_extra = 20
     sim_per_extra = simulations // max_extra
-
-    data = generate_data(width, height, ap_range)
 
     scores = defaultdict(list)
 
@@ -190,7 +192,7 @@ def main():
 
     test_start = time.time()
     for i in range(job_count):
-        j = multiprocessing.Process(target=test_worker, args=(data, width, height, ap_range, test_queue, result_queue))
+        j = multiprocessing.Process(target=test_worker, args=(width, height, ap_range, test_queue, result_queue))
         jobs.append(j)
         j.start()
 
