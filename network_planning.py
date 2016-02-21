@@ -2,73 +2,82 @@
 
 import random
 import math
-from collections import defaultdict
 import multiprocessing
-import signal
 import itertools
 import time
+import logging
+
+logging.basicConfig(
+    format='[%(asctime)s] %(levelname)s - %(message)s',
+    datefmt='%I:%M:%S'
+)
+log = logging.getLogger()
+log.setLevel(logging.INFO)
+
 
 class Field2D:
     def __init__(self, width, height, pt_range):
         self.width = width
         self.height = height
-        #print("starting field init")
         self.field_choices = set(itertools.product(range(width), range(height)))
-        self.circle = list(itertools.filterfalse(lambda p: distance((0, 0), p) > pt_range, itertools.product(range(-pt_range, pt_range+1), range(-pt_range, pt_range+1))))
-        #print("finished field init", len(self.circle))
-        #print (0, 0) in self.circle
+        self.circle = list(
+            itertools.filterfalse(
+                lambda p: distance((0, 0), p) > pt_range,
+            itertools.product(
+                range(-pt_range, pt_range+1),
+                range(-pt_range, pt_range+1))))
+
 
     def filter_within_range(self, point, pt_range):
-        #print("removing around ", x, y, len(self.field_choices))
         self.field_choices
         x, y = point
         for (cx, cy) in self.circle:
             p = (cx+x, cy+y)
             if p in self.field_choices:
-                #print "removing", p
                 self.field_choices.remove(p)
-        #print("done removing around ", x, y, len(self.field_choices))
-        #print (x, y), "in field:", (x, y) in self.field_choices
+
 
     def choose_unfilled_point(self):
-        choice = random.choice(list(self.field_choices))
-        #print choice in self.field_choices
-        return choice
+        return random.choice(list(self.field_choices))
 
-    def pick_points(self, n):
+
+    def sample_field(self, n):
         return random.sample(list(self.field_choices), n)
+
 
     def __len__(self):
         return len(self.field_choices)
 
-def random_points(max_x, max_y, count):
-    return {
-        (random.randint(0, max_x-1), random.randint(0, max_y-1)) \
-        for _ in range(count)}
 
 def distance(p1, p2):
     return math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
 
+
 def generate_data(width, height, ap_range):
     field = Field2D(width, height, ap_range)
-    soln = set()
+    soln = []
 
-    print("Generating data")
+    log.info("Generating data")
     start = time.time()
     while len(field) != 0:
         point = field.choose_unfilled_point()
-        soln.add(point)
+        soln.append(point)
         field.filter_within_range(point, ap_range)
     end = time.time()
-    print("Generated Data:", end - start)
+    log.info("Generated Data in %f", end - start)
 
     cover_len = len(soln)
     while len(soln) < cover_len * 2:
-        soln.add((random.randint(0, width), random.randint(0, height)))
+        soln.append((random.randint(0, width), random.randint(0, height)))
 
     return soln
 
+
 def heuristic_zero(width, height, ap_range, points):
+    """
+    This heuristic work by randomly choosing points until the space is
+    covered.
+    """
     field = Field2D(width, height, ap_range)
     soln = []
     points = set(points)
@@ -81,15 +90,6 @@ def heuristic_zero(width, height, ap_range, points):
 
     return soln
 
-def avg_dist(v0, vals, f):
-    """
-    This function computes the average value of some function f applied
-    between v and a series of other values.
-
-    For example: If v were 3, vals was [1, 2, 3], and f was '-'
-        then the result of avg_dist would be (3-1 + 3-2 + 3-3) / 3
-    """
-    return float(sum([f(v0, v) for v in vals])) / len(vals)
 
 def heuristic_one(width, height, ap_range, points):
     """
@@ -111,7 +111,7 @@ def heuristic_one(width, height, ap_range, points):
         if len(soln) == 0:
             soln.append(points.pop())
             continue
-        field_sample = field.pick_points(min(20, len(field)))
+        field_sample = field.sample_field(min(20, len(field)))
         best = min(points, key=lambda p: score(p, field_sample))
         soln.append(best)
         field.filter_within_range(best, ap_range)
@@ -122,7 +122,7 @@ def heuristic_two(width, height, ap_range, points):
     """
     This heuristic divides the space into blocks with a width and height of the
     access point range.  It randomly chooses between these blocks and randomly
-    chooses a point within the block.  This strategy was indented to acheive
+    chooses a point within the block.  This strategy was intended to acheive
     an even distribution over the space.
     """
     field = Field2D(width, height, ap_range)
@@ -169,7 +169,7 @@ class Test(object):
         self.index = index
 
     def __call__(self, width, height, ap_range):
-        print("test %d" % self.index)
+        log.info("test %d", self.index)
 
         start = time.time()
         data = generate_data(width, height, ap_range)
@@ -177,12 +177,12 @@ class Test(object):
         h1_soln = heuristic_one(width, height, ap_range, data)
         h2_soln = heuristic_two(width, height, ap_range, data)
         end = time.time()
-        print("test complete: ", end - start)
+        log.info("test %d complete: %f", self.index, end - start)
 
         return {
-            "h0": len(h0_soln),
-            "h1": len(h1_soln),
-            "h2": len(h2_soln),
+            "h0": len(h0_soln) / len(data),
+            "h1": len(h1_soln) / len(data),
+            "h2": len(h2_soln) / len(data),
         }, len(data)
 
 def test_worker(width, height, ap_range, test_queue, result_queue):
@@ -202,10 +202,8 @@ def main():
     ap_range = 20
     simulations = 100
 
-    scores = defaultdict(list)
-
     job_count = multiprocessing.cpu_count()
-    print("Starting %d testing processes" % job_count)
+    log.info("Starting %d testing processes", job_count)
     jobs = []
     test_queue = multiprocessing.JoinableQueue()
     result_queue = multiprocessing.Queue()
@@ -225,30 +223,31 @@ def main():
     test_queue.join()
     test_end = time.time()
 
-    print("Tests completed in ", test_end - test_start)
+    log.info("Tests completed in %f", test_end - test_start)
 
+    h0 = 0
+    h1 = 0
+    h2 = 0
+    best = 0
+    count = 0
     while simulations:
         result = result_queue.get()
-        scores[result[1]] += [result[0]]
         simulations -= 1
+        count += 1
+        h0 += result[0]["h0"]
+        h1 += result[0]["h1"]
+        h2 += result[0]["h2"]
+        best += result[0]["best"]
 
-    for num_extra in sorted(scores.keys()):
-        h0 = 0
-        h1 = 0
-        h2 = 0
-        best = 0
-        for result in scores[num_extra]:
-            h0 += result["h0"]
-            h1 += result["h1"]
-            h2 += result["h2"]
-            best += result["best"]
-        if len(scores[num_extra]) != 0:
-            num_results = float(len(scores[num_extra]))
-            h0 /= num_results
-            h1 /= num_results
-            h2 /= num_results
-            best /= num_results
-        print("%d %.2f %.2f %.2f %.2f" % (num_extra, h0, h1, h2, best))
+    h0 /= count
+    h1 /= count
+    h2 /= count
+    best /= count
+
+    print("H0: %f" % h0)
+    print("H1: %f" % h1)
+    print("H2: %f" % h2)
+    print("BEST: %f" % best)
 
 
 if __name__ == "__main__":
