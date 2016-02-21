@@ -6,6 +6,7 @@ import multiprocessing
 import itertools
 import time
 import logging
+import argparse
 
 logging.basicConfig(
     format='[%(asctime)s] %(levelname)s - %(message)s',
@@ -169,7 +170,7 @@ class Test(object):
         self.index = index
 
     def __call__(self, width, height, ap_range):
-        log.info("test %d", self.index)
+        log.info("Starting test %d", self.index)
 
         start = time.time()
         data = generate_data(width, height, ap_range)
@@ -177,7 +178,7 @@ class Test(object):
         h1_soln = heuristic_one(width, height, ap_range, data)
         h2_soln = heuristic_two(width, height, ap_range, data)
         end = time.time()
-        log.info("test %d complete: %f", self.index, end - start)
+        log.info("Test %d complete: %f", self.index, end - start)
 
         return {
             "h0": len(h0_soln) / len(data),
@@ -196,12 +197,7 @@ def test_worker(width, height, ap_range, test_queue, result_queue):
         result_queue.put((lengths, num_extra))
         test_queue.task_done()
 
-def main():
-    width = 200
-    height = 200
-    ap_range = 20
-    simulations = 100
-
+def main(width, height, ap_range, simulations):
     job_count = multiprocessing.cpu_count()
     log.info("Starting %d testing processes", job_count)
     jobs = []
@@ -251,4 +247,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Choose Access Points to cover area")
+    parser.add_argument("--width", type=int, default=2000, help="The width of the space (default: 2000)")
+    parser.add_argument("--height", type=int, default=2000, help="The height of the space (default: 2000)")
+    parser.add_argument("--range", type=int, default=200, help="The range of each access point (default: 200)")
+    parser.add_argument("--sims", type=int, default=100, help="The number of simulations to run (default: 100)")
+    args = parser.parse_args()
+    main(args.width, args.height, args.range, args.sims)
