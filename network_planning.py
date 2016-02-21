@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 import random
 import math
@@ -7,10 +7,6 @@ import multiprocessing
 import signal
 import itertools
 import time
-
-AP_RANGE  = 200     # meters
-AREA_WIDTH = 2000   # meters
-AREA_HEIGHT = 2000  # meters
 
 class Field2D:
     def __init__(self, width, height, pt_range):
@@ -38,6 +34,9 @@ class Field2D:
         choice = random.choice(list(self.field_choices))
         #print choice in self.field_choices
         return choice
+
+    def pick_points(self, n):
+        return random.sample(self.field_choices, n)
 
     def __len__(self):
         return len(self.field_choices)
@@ -94,23 +93,26 @@ def avg_dist(v0, vals, f):
 
 def heuristic_one(width, height, ap_range, points):
     """
-    heuristic_one works by choosing the point that maximizes the distance to
-    the points that a left to choose from.
+    heuristic_one works by choosing a collection of random points from the
+    uncovered selections then choosing an access point that is closest to
+    one of these points.
     """
     field = Field2D(width, height, ap_range)
     soln = []
     points = set(points)
 
-    def score(point):
-        pts = list(points)
-        pts.remove(point)
-        return avg_dist(point, pts, distance)
+    def score(point, field_sample):
+        return min(map(lambda p: distance(point, p), field_sample))
 
     while len(field) != 0:
         if len(points) == 1:
             soln.append(points.pop())
             break
-        best = max(points, key=score)
+        if len(soln) == 0:
+            soln.append(points.pop())
+            continue
+        field_sample = field.pick_points(min(20, len(field)))
+        best = min(points, key=lambda p: score(p, field_sample))
         soln.append(best)
         field.filter_within_range(best, ap_range)
         points.remove(best)
@@ -118,36 +120,56 @@ def heuristic_one(width, height, ap_range, points):
 
 def heuristic_two(width, height, ap_range, points):
     """
+    This heuristic divides the space into blocks with a width and height of the
+    access point range.  It randomly chooses between these blocks and randomly
+    chooses a point within the block.  This strategy was indented to acheive
+    an even distribution over the space.
     """
     field = Field2D(width, height, ap_range)
     soln = []
-    start_points = list(points)
-    start_points += [(0,0),(width,0),(0,height),(width,height)]
     points = list(points)
+    grid_x = list(range(width // ap_range + 1))
+    grid_y = list(range(height // ap_range + 1))
 
-    def score(point):
-        return avg_dist(point, start_points, distance)
+    while True:
+        random.shuffle(grid_x)
+        random.shuffle(grid_y)
+        for point in itertools.product(grid_x, grid_y):
+            x, y = point
+            if len(field) == 0:
+                # The field is covered
+                break
+            # Get only the points inside the block
+            block = list(filter(
+                lambda p:
+                    p[0] >= x * ap_range and \
+                    p[0] < x * ap_range + ap_range and \
+                    p[1] >= y * ap_range and \
+                    p[1] < y * ap_range + ap_range,
+                points))
+            if len(block) == 0:
+                # No access points are left in this block
+                continue
+            ap = random.choice(block)
+            soln.append(ap)
+            field.filter_within_range(ap, ap_range)
+            points.remove(ap)
+        else:
+            # Can only get here if the for loop terminates without a break
+            continue
+        break
 
-    while len(field) != 0:
-        if len(points) == 1:
-            soln.append(points.pop())
-            break
-        best = min(points, key=score)
-        soln.append(best)
-        field.filter_within_range(best, ap_range)
-        points.remove(best)
     return soln
 
 
 class Test(object):
-    __slots__ = ["num_extra", "index"]
+    __slots__ = ["index"]
 
-    def __init__(self, num_extra, index):
-        self.num_extra = num_extra
+    def __init__(self, index):
         self.index = index
 
     def __call__(self, width, height, ap_range):
-        print("m=%d: %d" % (self.num_extra, self.index))
+        print("test %d" % self.index)
 
         start = time.time()
         data = generate_data(width, height, ap_range)
@@ -161,7 +183,7 @@ class Test(object):
             "h0": len(h0_soln),
             "h1": len(h1_soln),
             "h2": len(h2_soln),
-        }, self.num_extra
+        }, len(data)
 
 def test_worker(width, height, ap_range, test_queue, result_queue):
     while True:
@@ -175,12 +197,10 @@ def test_worker(width, height, ap_range, test_queue, result_queue):
         test_queue.task_done()
 
 def main():
-    width = 2000
-    height = 2000
-    ap_range = 200
-    simulations = 100
-    max_extra = 20
-    sim_per_extra = simulations // max_extra
+    width = 200
+    height = 200
+    ap_range = 20
+    simulations = 16
 
     scores = defaultdict(list)
 
@@ -196,9 +216,8 @@ def main():
         jobs.append(j)
         j.start()
 
-    for num_extra in range(1, max_extra + 1):
-        for i in range(sim_per_extra):
-            test_queue.put(Test(num_extra, i))
+    for i in range(simulations):
+        test_queue.put(Test(i))
 
     for _ in range(job_count):
         test_queue.put(None)
@@ -229,7 +248,7 @@ def main():
             h1 /= num_results
             h2 /= num_results
             best /= num_results
-        print(h0, h1, h2, best)
+        print(num_extra, h0, h1, h2, best)
 
 
 if __name__ == "__main__":
