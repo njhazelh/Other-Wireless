@@ -36,7 +36,7 @@ class Field2D:
         return choice
 
     def pick_points(self, n):
-        return random.sample(self.field_choices, n)
+        return random.sample(list(self.field_choices), n)
 
     def __len__(self):
         return len(self.field_choices)
@@ -200,7 +200,7 @@ def main():
     width = 200
     height = 200
     ap_range = 20
-    simulations = 16
+    simulations = 100
 
     scores = defaultdict(list)
 
@@ -232,7 +232,7 @@ def main():
         scores[result[1]] += [result[0]]
         simulations -= 1
 
-    for num_extra in scores:
+    for num_extra in sorted(scores.keys()):
         h0 = 0
         h1 = 0
         h2 = 0
@@ -248,7 +248,7 @@ def main():
             h1 /= num_results
             h2 /= num_results
             best /= num_results
-        print(num_extra, h0, h1, h2, best)
+        print("%d %.2f %.2f %.2f %.2f" % (num_extra, h0, h1, h2, best))
 
 
 if __name__ == "__main__":
