@@ -244,10 +244,10 @@ def main():
     h2 /= count
     best /= count
 
-    print("H0: %f" % h0)
-    print("H1: %f" % h1)
-    print("H2: %f" % h2)
-    print("BEST: %f" % best)
+    print("H0\t%f" % h0)
+    print("H1\t%f" % h1)
+    print("H2\t%f" % h2)
+    print("Best(H0, H1, H2)\t%f" % best)
 
 
 if __name__ == "__main__":
