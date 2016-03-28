@@ -13,11 +13,17 @@ When this is done, use the arduino IDE to upload `dht_sampler.ino` to the linkit
 The linkit should have a DHT11 sensor with the data pin attached to D12.  It should
 also have an LED attached to D11.
 
-Next, start `temper_server.py` from the command line.
+Next generate a certificate and key for the SSL connection.  You can do this
+using `openssl req -new -x509 -days 365 -nodes -out server.cert -keyout server.key`.
+The certificate must be called server.cert and the key must be called server.key.
+A sample certificate and key are included for conveniance.
 
-Next, upload `temp_catcher.py` to the Linkit using SSH/SCP.  Using SSH, start
-`temp_catcher.py` using the IP of the server and the port number, 1234.
-eg. `$ ./temp_catcher.py x.x.x.x 1234`.
+Next, start `temper_server.py` from the command line. The certificate and key
+must be in the same directory as the server script.
+
+Next, upload `temp_catcher.py` and the certificate to the Linkit using SSH/SCP.
+Using SSH, start `temp_catcher.py` using the IP of the server and the port
+number, 1234. eg. `$ ./temp_catcher.py x.x.x.x 1234`
 
 If everything works correctly, you should see temperature information appearing
 in both the server and the catcher at roughly 2 second intervals.

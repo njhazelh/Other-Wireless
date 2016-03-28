@@ -1,9 +1,11 @@
 #! /usr/bin/env python
 
-import SocketServer
+from SocketServer import TCPServer, ThreadingMixIn, StreamRequestHandler
 import struct
 from datetime import datetime
+import ssl
 
+SERVER_HOST = ""
 SERVER_PORT = 1234
 
 output_tmpl = "Time: %s" +\
@@ -22,7 +24,32 @@ def print_datapoint(parts):
     print output_tmpl % (t, humid, temp_c, temp_f, heat_c, heat_f)
 
 
-class TCPTempHandler(SocketServer.BaseRequestHandler):
+class SSL_TCPServer(TCPServer):
+    """
+    Adds SSL to the SocketServer.  Based on response by WarriorPaw in
+    http://stackoverflow.com/questions/8582766/adding-ssl-support-to-socketserver
+    """
+    def __init__(self,
+                 server_address,
+                 RequestHandlerClass,
+                 certfile,
+                 keyfile,
+                 bind_and_activate=True):
+        TCPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
+        self.certfile = certfile
+        self.keyfile = keyfile
+
+    def get_request(self):
+        newsocket, fromaddr = self.socket.accept()
+        connstream = ssl.wrap_socket(newsocket,
+                                     server_side=True,
+                                     certfile=self.certfile,
+                                     keyfile=self.keyfile)
+        return connstream, fromaddr
+
+class SSL_ThreadingTCPServer(ThreadingMixIn, SSL_TCPServer): pass
+
+class TempHandler(StreamRequestHandler):
 
     def handle(self):
         while True:
@@ -34,7 +61,10 @@ class TCPTempHandler(SocketServer.BaseRequestHandler):
 
 
 def main():
-    server = SocketServer.TCPServer(("", SERVER_PORT), TCPTempHandler)
+    server = SSL_ThreadingTCPServer((SERVER_HOST, SERVER_PORT),
+                                    TempHandler,
+                                    "server.cert",
+                                    "server.key")
     server.serve_forever()
 
 

@@ -4,6 +4,7 @@ import serial
 import time
 import argparse
 import socket
+import ssl
 import struct
 from datetime import datetime
 
@@ -37,11 +38,19 @@ def pack_parts(parts):
     return struct.pack("dddddd", *parts)
 
 
-def main(server_address, server_port):
+def get_connection(server_address, server_port):
     print "Opening connection to %s on port %d" % (server_address, server_port)
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.connect((server_address, server_port))
+    conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    conn = ssl.wrap_socket(conn,
+                           ca_certs="server.cert",
+                           cert_reqs=ssl.CERT_REQUIRED)
+    conn.connect((server_address, server_port))
     print "Connection established"
+    return conn
+
+
+def main(server_address, server_port):
+    conn = get_connection(server_address, server_port)
     try:
         while True:
             line = s.readline()
@@ -49,15 +58,18 @@ def main(server_address, server_port):
                 t = time.mktime(time.localtime())
                 parts = [t] + parseLine(line)
                 print_datapoint(parts)
-                server.sendall(pack_parts(parts))
+                conn.sendall(pack_parts(parts))
+            except socket.error as e:
+                print e
+                conn.close()
+                conn = get_connection(server_address, server_port)
             except RuntimeError as e:
                 print e
-                continue
     except KeyboardInterrupt:
         pass
     finally:
         print "\rClosing connection to %s:%d" % (server_address, server_port)
-        server.close()
+        conn.close()
 
 
 if __name__ == "__main__":
