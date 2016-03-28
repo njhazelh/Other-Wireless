@@ -17,6 +17,10 @@ output_tmpl = "Time: %s" +\
 
 
 def print_datapoint(parts):
+    """
+    Print the data to stdout
+    :param parts: The parts of the data
+    """
     t = datetime.fromtimestamp(parts[0])
     humid = parts[1]
     temp_c = parts[2]
@@ -27,6 +31,12 @@ def print_datapoint(parts):
 
 
 def parseLine(line):
+    """
+    Break the line apart and convert into correct datatypes.
+    :param line: The line to parse
+    :returns: The line broken into 5 parts (humidity, celcius, farenheit,
+        heat index in celcius, heat index in farenheit).
+    """
     parts = line.strip().split("\t")
     if len(parts) != 5:
         raise RuntimeError("empty line %s" % line)
@@ -35,10 +45,21 @@ def parseLine(line):
 
 
 def pack_parts(parts):
+    """
+    Pack the parts into a binary message.
+    :param parts: The parts of the message
+    :returns: A sequence of bytes containing 6 doubles (8 bytes each).
+    """
     return struct.pack("dddddd", *parts)
 
 
 def get_connection(server_address, server_port):
+    """
+    Create an SSL connection to the server.
+    :param server_address: The IP/domain of the server
+    :param server_port: The TCP port of the server.
+    :returns: A SSL connection to server_address on server_port over TCP
+    """
     print "Opening connection to %s on port %d" % (server_address, server_port)
     conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     conn = ssl.wrap_socket(conn,
