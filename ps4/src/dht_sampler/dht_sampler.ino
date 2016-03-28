@@ -3,15 +3,10 @@
 
 #include "DHT.h"
 
-#define DHTPIN 12     // what digital pin we're connected to
-#define LEDPIN 11
-
-#define LED_THRES 90.0
-
-// Uncomment whatever type you're using!
+#define DHTPIN 12       // what digital pin the humidity data output is on
+#define LEDPIN 11       // what pin the LED is on
+#define LED_THRES 90.0  // The temp in farenheit at which the led turns on
 #define DHTTYPE DHT11   // DHT 11
-//#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
-//#define DHTTYPE DHT21   // DHT 21 (AM2301)
 
 // Connect pin 1 (on the left) of the sensor to +5V
 // NOTE: If using a board with 3.3V logic like an Arduino Due connect pin 1
@@ -33,12 +28,21 @@ void setup() {
   // To OpenWRT
   Serial1.begin(57600);
 
+  // Setup LED
   pinMode(LEDPIN, OUTPUT);
 
   // To Pins
   dht.begin();
 }
 
+/**
+ * Print the data read to the USB output
+ * @param humidity - The percent humidity read
+ * @param tempCel  - The temp in Celcius
+ * @param tempFar  - The temp in Farenheit
+ * @param heatIndexCel - The heat index in Celcius
+ * @param headIndexFar - The heat index in Farenheit
+ */
 void printToCOM(float humidity, float tempCel, float tempFar, float heatIndexCel, float heatIndexFar) {
   Serial.print("Humidity: ");
   Serial.print(humidity);
@@ -55,6 +59,14 @@ void printToCOM(float humidity, float tempCel, float tempFar, float heatIndexCel
   Serial.println(" *F");
 }
 
+/**
+ * Print the data read to the Processor
+ * @param humidity - The percent humidity read
+ * @param tempCel  - The temp in Celcius
+ * @param tempFar  - The temp in Farenheit
+ * @param heatIndexCel - The heat index in Celcius
+ * @param headIndexFar - The heat index in Farenheit
+ */
 void printToWRT(float humidity, float tempCel, float tempFar, float heatIndexCel, float heatIndexFar) {
   Serial1.print(humidity);
   Serial1.print("\t");
@@ -93,9 +105,10 @@ void loop() {
   float hic = dht.computeHeatIndex(t, h, false);
 
   if (f > LED_THRES) {
-    Serial.println("higher than 75 farenheit");
+    Serial.println("> than 90 farenheit");
     digitalWrite(LEDPIN, HIGH);
   } else {
+    Serial.println("<= than 90 farenheit");
     digitalWrite(LEDPIN, LOW);
   }
 
