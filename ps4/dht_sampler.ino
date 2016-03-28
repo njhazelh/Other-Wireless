@@ -34,7 +34,7 @@ void setup() {
   Serial1.begin(57600);
 
   pinMode(LEDPIN, OUTPUT);
-  
+
   // To Pins
   dht.begin();
 }
@@ -91,14 +91,14 @@ void loop() {
   float hif = dht.computeHeatIndex(f, h);
   // Compute heat index in Celsius (isFahreheit = false)
   float hic = dht.computeHeatIndex(t, h, false);
-  
+
   if (f > LED_THRES) {
     Serial.println("higher than 75 farenheit");
     digitalWrite(LEDPIN, HIGH);
   } else {
     digitalWrite(LEDPIN, LOW);
   }
-  
+
   printToCOM(h, t, f, hic, hif);
   printToWRT(h, t, f, hic, hif);
 }

@@ -6,6 +6,21 @@ from datetime import datetime
 
 SERVER_PORT = 1234
 
+output_tmpl = "Time: %s" +\
+    "\tHumidity: %.2f%%" +\
+    "\tTemperature: %.2f*C %.2f*F" +\
+    "\tHeat index: %.2f*C %.2f*F"
+
+
+def print_datapoint(parts):
+    t = datetime.fromtimestamp(parts[0])
+    humid = parts[1]
+    temp_c = parts[2]
+    temp_f = parts[3]
+    heat_c = parts[4]
+    heat_f = parts[5]
+    print output_tmpl % (t, humid, temp_c, temp_f, heat_c, heat_f)
+
 
 class TCPTempHandler(SocketServer.BaseRequestHandler):
 
@@ -15,8 +30,7 @@ class TCPTempHandler(SocketServer.BaseRequestHandler):
             if not data:
                 break
             parts = struct.unpack("dddddd", data)
-            time, parts = parts[0], parts[1:]
-            print datetime.fromtimestamp(time), parts
+            print_datapoint(parts)
 
 
 def main():
