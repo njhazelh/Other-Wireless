@@ -18,7 +18,7 @@ def parseLine(line):
 
 
 def pack_parts(parts):
-    return struct.pack("fffff", *parts)
+    return struct.pack("dddddd", *parts)
 
 
 def main(server_address, server_port):
@@ -30,12 +30,13 @@ def main(server_address, server_port):
         while True:
             line = s.readline()
             try:
-                parts = parseLine(line)
+                t = time.mktime(time.localtime())
+                parts = [t] + parseLine(line)
+                print parts
+                server.sendall(pack_parts(parts))
             except RuntimeError as e:
                 print e
                 continue
-            print parts
-            server.sendall(pack_parts(parts))
     except KeyboardInterrupt:
         pass
     finally:
