@@ -1,0 +1,3 @@
+[submodule "ps5/Sunshine-Version-2"]
+	path = ps5/Sunshine-Version-2
+	url = git@github.com:udacity/Sunshine-Version-2.git
